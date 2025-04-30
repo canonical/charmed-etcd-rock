@@ -1,4 +1,4 @@
-name: Build Rock
+name: Build and Test Rock
 
 on:
   workflow_call:
@@ -25,3 +25,68 @@ jobs:
         with:
           name: charmed-etcd-rock
           path: charmed-etcd_*.rock
+  test:
+    name: Test Rock
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs:
+      - build
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Download rock file
+        uses: actions/download-artifact@v4
+        with:
+          name: charmed-etcd-rock
+          path: .
+
+      - name: Install required dependencies
+        run: |
+          sudo snap install docker
+          sudo addgroup --system docker; sudo adduser $USER docker
+          newgrp docker
+          sudo snap disable docker; sudo snap enable docker
+
+          # skopeo
+          sudo apt-get update -y && sudo apt-get install -y skopeo
+          sudo snap install yq
+
+      - name: Create local image
+        run: |
+          version="$(yq .version rockcraft.yaml)"
+          sudo skopeo \
+              --insecure-policy \
+              copy \
+              oci-archive:charmed-etcd_${version}_amd64.rock \
+              docker-daemon:charmed-etcd:${version}
+
+      - name: Start etcd run tests
+        run: |
+          version="$(yq .version rockcraft.yaml)"
+          docker run \
+            -d --rm \
+            -p 2379:2379 \
+            --name etcd-test \
+            charmed-etcd:"${version}"
+          
+          # wait a bit for it to fully initialize
+          sleep 15s
+          
+          if ! docker exec etcd-test etcdctl --endpoints=http://localhost:2379 put foo bar; then
+            echo "etcd failed put test"
+            exit 1
+          fi
+
+          VALUE=$(docker exec etcd-test etcdctl --endpoints=http://localhost:2379 get foo --print-value-only)
+          if [ "$VALUE" != "bar" ]; then
+            echo "expected 'bar' but got '$VALUE'"
+            exit 1
+          fi
+
+          if ! docker exec etcd-test etcdctl --endpoints=http://localhost:2379 endpoint health | grep -q "is healthy"; then
+            echo "etcd failed health check"
+            exit 1
+          fi
+
+          docker stop etcd-test || true

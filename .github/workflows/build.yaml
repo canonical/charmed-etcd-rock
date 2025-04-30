@@ -44,8 +44,6 @@ jobs:
       - name: Install required dependencies
         run: |
           sudo snap install docker
-          sudo addgroup --system docker; sudo adduser $USER docker
-          newgrp docker
           sudo snap disable docker; sudo snap enable docker
 
           # skopeo
@@ -64,7 +62,7 @@ jobs:
       - name: Start etcd run tests
         run: |
           version="$(yq .version rockcraft.yaml)"
-          docker run \
+          sudo docker run \
             -d --rm \
             -p 2379:2379 \
             --name etcd-test \
@@ -73,20 +71,18 @@ jobs:
           # wait a bit for it to fully initialize
           sleep 15s
           
-          if ! docker exec etcd-test etcdctl --endpoints=http://localhost:2379 put foo bar; then
+          if ! sudo docker exec etcd-test etcdctl --endpoints=http://localhost:2379 put foo bar; then
             echo "etcd failed put test"
             exit 1
           fi
 
-          VALUE=$(docker exec etcd-test etcdctl --endpoints=http://localhost:2379 get foo --print-value-only)
+          VALUE=$(sudo docker exec etcd-test etcdctl --endpoints=http://localhost:2379 get foo --print-value-only)
           if [ "$VALUE" != "bar" ]; then
             echo "expected 'bar' but got '$VALUE'"
             exit 1
           fi
 
-          if ! docker exec etcd-test etcdctl --endpoints=http://localhost:2379 endpoint health | grep -q "is healthy"; then
+          if ! sudo docker exec etcd-test etcdctl --endpoints=http://localhost:2379 endpoint health | grep -q "is healthy"; then
             echo "etcd failed health check"
             exit 1
           fi
-
-          docker stop etcd-test || true

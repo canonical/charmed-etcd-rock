@@ -1,0 +1,64 @@
+name: charmed-etcd # the name of your ROCK
+base: ubuntu@24.04 # the base environment for this ROCK
+license: Apache-2.0
+version: '3.5.21' # just for humans. Semantic versioning is recommended
+summary: 'etcd is a distributed reliable key-value store for distributed systems.'
+description: |
+  etcd is a distributed reliable key-value store for the most critical data of a distributed system.
+
+  etcd is written in Go and uses the Raft consensus algorithm to manage a highly-available replicated log.
+platforms: # The platforms this ROCK should be built on and run on
+  amd64:
+  arm64:
+services:
+  etcd:
+    override: replace
+    startup: enabled
+    summary: Start etcd
+    command: "/bin/bash /bin/start-etcd.sh"
+    environment:
+      ETCD_CONFIG_FILE: /etc/etcd/etcd.conf.yml
+parts:
+  etcd-snap:
+    plugin: nil
+    stage-snaps:
+      - charmed-etcd/3.5/edge
+    stage-packages:
+      - util-linux
+    stage:
+      - "-config/etcd.conf.yml"
+  etcd-config:
+    plugin: dump
+    source: config
+    organize:
+      etcd.conf.yml: etc/etcd/etcd.conf.yml
+    stage:
+      - etc/etcd/etcd.conf.yml
+  non-root-user:
+    plugin: nil
+    after: [etcd-snap, etcd-config]
+    overlay-script: |
+      # Create a user in the $CRAFT_OVERLAY chroot
+      groupadd -R $CRAFT_OVERLAY -g  584788 etcd
+      useradd -R $CRAFT_OVERLAY -M -r -g etcd -u 584788 etcd
+    override-prime: |
+      craftctl default
+
+      chown -R 584788:584788 $CRAFT_PRIME/etc/etcd
+
+      mkdir -p $CRAFT_PRIME/var/lib/etcd
+      chown -R 584788:584788 $CRAFT_PRIME/var/lib/etcd
+
+      # enable security monitoring
+      rocks=usr/share/rocks/
+      mkdir -p ${rocks}
+
+      ## for deb packages
+      dpkg-query -f '${db:Status-Abbrev},${binary:Package},${Version},${source:Package},${Source:Version}\n' -W > ${rocks}/dpkg.query
+  entry:
+    plugin: dump
+    source: scripts
+    organize:
+      start-etcd.sh: bin/start-etcd.sh
+    stage:
+      - bin/start-etcd.sh

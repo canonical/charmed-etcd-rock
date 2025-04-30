@@ -16,7 +16,6 @@ cd charmed-etcd-rock
 sudo snap install rockcraft --edge --classic
 sudo snap install docker
 sudo snap install lxd
-sudo apt-get -y update && sudo apt-get -y install skopeo
 ```
 ### Configuring Prerequisites
 ```bash
@@ -29,7 +28,7 @@ sudo lxd init --auto
 ```
 rockcraft pack
 ROCK=$(echo ./charmed-etcd_*.rock)
-sudo skopeo --insecure-policy copy oci-archive:$ROCK docker-daemon:charmed-etcd:<tag>
+sudo rockcraft.skopeo --insecure-policy copy oci-archive:$ROCK docker-daemon:charmed-etcd:<tag>
 docker run --rm -it charmed-etcd:<tag>
 ```
 ## License:

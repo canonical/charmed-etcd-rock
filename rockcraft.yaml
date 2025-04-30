@@ -25,18 +25,13 @@ parts:
       - charmed-etcd/3.5/edge
     stage-packages:
       - util-linux
-    stage:
-      - "-config/etcd.conf.yml"
-  etcd-config:
-    plugin: dump
-    source: config
     organize:
-      etcd.conf.yml: etc/etcd/etcd.conf.yml
-    stage:
-      - etc/etcd/etcd.conf.yml
+      config/etcd.conf.yml: etc/etcd/etcd.conf.yml
   non-root-user:
     plugin: nil
-    after: [etcd-snap, etcd-config]
+    after: [etcd-snap]
+    stage-snaps:
+      - yq
     overlay-script: |
       # Create a user in the $CRAFT_OVERLAY chroot
       groupadd -R $CRAFT_OVERLAY -g  584788 etcd
@@ -44,10 +39,11 @@ parts:
     override-prime: |
       craftctl default
 
-      chown -R 584788:584788 $CRAFT_PRIME/etc/etcd
-
       mkdir -p $CRAFT_PRIME/var/lib/etcd
       chown -R 584788:584788 $CRAFT_PRIME/var/lib/etcd
+
+      chown -R 584788:584788 ${CRAFT_PRIME}/etc/etcd
+      yq -i '.["data-dir"] = "/var/lib/etcd"' ${CRAFT_PRIME}/etc/etcd/etcd.conf.yml
 
       # enable security monitoring
       rocks=usr/share/rocks/

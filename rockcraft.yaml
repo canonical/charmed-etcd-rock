@@ -17,7 +17,8 @@ services:
     summary: Start etcd
     command: "/bin/bash /bin/start-etcd.sh"
     environment:
-      ETCD_CONFIG_FILE: /etc/etcd/etcd.conf.yml
+      ETCD_DATA_DIR: /var/lib/etcd
+
 parts:
   etcd-snap:
     plugin: nil
@@ -25,8 +26,8 @@ parts:
       - charmed-etcd/3.5/edge
     stage-packages:
       - util-linux
-    organize:
-      config/etcd.conf.yml: etc/etcd/etcd.conf.yml
+    stage:
+      - "-config/etcd.conf.yml"
   non-root-user:
     plugin: nil
     after: [etcd-snap]
@@ -41,9 +42,8 @@ parts:
 
       mkdir -p $CRAFT_PRIME/var/lib/etcd
       chown -R 584788:584788 $CRAFT_PRIME/var/lib/etcd
-
+      mkdir -p $CRAFT_PRIME/etc/etcd
       chown -R 584788:584788 ${CRAFT_PRIME}/etc/etcd
-      yq -i '.["data-dir"] = "/var/lib/etcd"' ${CRAFT_PRIME}/etc/etcd/etcd.conf.yml
 
       # enable security monitoring
       rocks=usr/share/rocks/

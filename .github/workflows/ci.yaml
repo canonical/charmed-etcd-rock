@@ -63,27 +63,61 @@ jobs:
       - name: Start etcd run tests
         run: |
           version="$(yq .version rockcraft.yaml)"
-          sudo docker run \
-            -d --rm \
-            -p 2379:2379 \
-            --name etcd-test \
-            charmed-etcd:"${version}"
+          sudo docker network create etcd-net
+
+          MEMBERS=(etcd0 etcd1 etcd2)
+          INITIAL_CLUSTER=""
+          for MEMBER in "${MEMBERS[@]}"; do
+            INITIAL_CLUSTER+="${MEMBER}=http://${MEMBER}:2380,"
+          done
+          INITIAL_CLUSTER="${INITIAL_CLUSTER%,}"
+
+          for MEMBER in "${MEMBERS[@]}"; do
+             sudo docker run -d --rm \
+               --name "${MEMBER}" \
+               --network etcd-net \
+               -e ETCD_NAME="${MEMBER}" \
+               -e ETCD_INITIAL_ADVERTISE_PEER_URLS="http://${MEMBER}:2380" \
+               -e ETCD_LISTEN_PEER_URLS="http://0.0.0.0:2380" \
+               -e ETCD_ADVERTISE_CLIENT_URLS="http://${MEMBER}:2379" \
+               -e ETCD_LISTEN_CLIENT_URLS="http://0.0.0.0:2379" \
+               -e ETCD_INITIAL_CLUSTER_TOKEN="etcd_cluster" \
+               -e ETCD_INITIAL_CLUSTER="${INITIAL_CLUSTER}" \
+               -e ETCD_INITIAL_CLUSTER_STATE=new \
+               charmed-etcd:"${version}"
+          done
           
           # wait a bit for it to fully initialize
           sleep 15s
           
-          if ! sudo docker exec etcd-test etcdctl --endpoints=http://localhost:2379 put foo bar; then
+          cluster=$(sudo docker exec etcd0 etcdctl --endpoints=http://localhost:2379 member list)
+          count=$(grep -c ', started,' <<< "$cluster")
+          if [ "$count" -ne 3 ]; then
+            echo "expected 3 members but got $count"
+            exit 1
+          fi
+
+          if ! sudo docker exec etcd0 etcdctl --endpoints=http://localhost:2379 put foo bar; then
             echo "etcd failed put test"
             exit 1
           fi
 
-          VALUE=$(sudo docker exec etcd-test etcdctl --endpoints=http://localhost:2379 get foo --print-value-only)
+          sleep 2s
+
+          VALUE=$(sudo docker exec etcd1 etcdctl --endpoints=http://localhost:2379 get foo --print-value-only)
           if [ "$VALUE" != "bar" ]; then
             echo "expected 'bar' but got '$VALUE'"
             exit 1
           fi
 
-          if ! sudo docker exec etcd-test etcdctl --endpoints=http://localhost:2379 endpoint health | grep -q "is healthy"; then
-            echo "etcd failed health check"
-            exit 1
-          fi
+          health-check(){
+            local MEMBER="$1"
+            if ! sudo docker exec "${MEMBER}" etcdctl --endpoints=http://localhost:2379 endpoint health | grep -q "is healthy"; then
+              echo "member ${MEMBER} failed health check"
+              exit 1
+            fi
+          }
+
+          health-check etcd0
+          health-check etcd1
+          health-check etcd2

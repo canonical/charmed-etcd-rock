@@ -45,12 +45,6 @@ parts:
       mkdir -p $CRAFT_PRIME/etc/etcd
       chown -R 584788:584788 ${CRAFT_PRIME}/etc/etcd
 
-      # enable security monitoring
-      rocks=usr/share/rocks/
-      mkdir -p ${rocks}
-
-      ## for deb packages
-      dpkg-query -f '${db:Status-Abbrev},${binary:Package},${Version},${source:Package},${Source:Version}\n' -W > ${rocks}/dpkg.query
   entry:
     plugin: dump
     source: scripts

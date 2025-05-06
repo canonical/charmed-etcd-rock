@@ -24,13 +24,12 @@ parts:
     plugin: nil
     stage-snaps:
       - charmed-etcd/3.5/edge
-    stage-packages:
-      - util-linux
     stage:
       - "-config/etcd.conf.yml"
   non-root-user:
     plugin: nil
-    after: [etcd-snap]
+    after: 
+      - etcd-snap
     stage-snaps:
       - yq
     overlay-script: |

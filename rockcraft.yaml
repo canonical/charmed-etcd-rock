@@ -15,7 +15,7 @@ services:
     override: replace
     startup: enabled
     summary: Start etcd
-    command: "/bin/bash /bin/start-etcd.sh"
+    command: "/usr/bin/etcd"
     environment:
       ETCD_DATA_DIR: /var/lib/etcd
 
@@ -30,8 +30,6 @@ parts:
     plugin: nil
     after: 
       - etcd-snap
-    stage-snaps:
-      - yq
     overlay-script: |
       # Create a user in the $CRAFT_OVERLAY chroot
       groupadd -R $CRAFT_OVERLAY -g  584788 etcd
@@ -41,13 +39,3 @@ parts:
 
       mkdir -p $CRAFT_PRIME/var/lib/etcd
       chown -R 584788:584788 $CRAFT_PRIME/var/lib/etcd
-      mkdir -p $CRAFT_PRIME/etc/etcd
-      chown -R 584788:584788 ${CRAFT_PRIME}/etc/etcd
-
-  entry:
-    plugin: dump
-    source: scripts
-    organize:
-      start-etcd.sh: bin/start-etcd.sh
-    stage:
-      - bin/start-etcd.sh

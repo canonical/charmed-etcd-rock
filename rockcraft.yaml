@@ -39,3 +39,6 @@ parts:
 
       mkdir -p $CRAFT_PRIME/var/lib/etcd
       chown -R 584792:584792 $CRAFT_PRIME/var/lib/etcd
+
+      mkdir -p $CRAFT_PRIME/var/log/etcd
+      chown -R 584792:584792 $CRAFT_PRIME/var/log/etcd

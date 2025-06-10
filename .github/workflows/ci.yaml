@@ -1,0 +1,126 @@
+name: Build and Test Rock
+
+on:
+  workflow_call:
+  pull_request:
+
+jobs:
+  build:
+    name: Build Rock
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Setup LXD
+        uses: canonical/setup-lxd@main
+      - name: Install dependencies
+        run: |
+          sudo snap install rockcraft --classic --edge
+      - name: Build Rock
+        run: |
+          rockcraft pack --verbose
+      - name: Upload built rock artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: charmed-etcd-rock
+          path: charmed-etcd_*.rock
+  test:
+    name: Test Rock
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs:
+      - build
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Download rock file
+        uses: actions/download-artifact@v4
+        with:
+          name: charmed-etcd-rock
+          path: .
+
+      - name: Install required dependencies
+        run: |
+          sudo snap install docker
+          sudo addgroup --system docker; sudo adduser $USER docker
+          newgrp docker
+          sudo snap disable docker; sudo snap enable docker
+
+          # skopeo
+          sudo apt-get update -y && sudo apt-get install -y skopeo
+          sudo snap install yq
+
+      - name: Create local image
+        run: |
+          version="$(yq .version rockcraft.yaml)"
+          sudo skopeo \
+              --insecure-policy \
+              copy \
+              oci-archive:charmed-etcd_${version}_amd64.rock \
+              docker-daemon:charmed-etcd:${version}
+
+      - name: Start etcd run tests
+        run: |
+          version="$(yq .version rockcraft.yaml)"
+
+          discovery_node=$(docker run -d \
+            --name discovery-node \
+            -e ETCD_NAME=discovery-node \
+            -e ETCD_INITIAL_ADVERTISE_PEER_URLS=http://localhost:2380 \
+            -e ETCD_LISTEN_PEER_URLS=http://0.0.0.0:2380 \
+            -e ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:2379 \
+            -e ETCD_ADVERTISE_CLIENT_URLS=http://localhost:2379 \
+            charmed-etcd:"${version}"
+          )
+          discovery_ip=$(docker inspect -f '{{ .NetworkSettings.IPAddress }}' "${discovery_node}")
+
+          TOKEN="random-token"
+          docker exec "${discovery_node}" etcdctl put /_etcd/registry/${TOKEN}/_config/size 3
+
+          MEMBERS=(etcd0 etcd1 etcd2)
+          for NAME in "${MEMBERS[@]}"; do
+            docker run -d \
+              --name "$NAME" \
+              -e ETCD_NAME="${NAME}" \
+              -e ETCD_INITIAL_ADVERTISE_PEER_URLS="http://localhost:2380" \
+              -e ETCD_LISTEN_PEER_URLS="http://0.0.0.0:2380" \
+              -e ETCD_LISTEN_CLIENT_URLS="http://0.0.0.0:2379" \
+              -e ETCD_ADVERTISE_CLIENT_URLS="http://localhost:2379" \
+              -e ETCD_DISCOVERY_TOKEN="${TOKEN}" \
+              -e ETCD_DISCOVERY_ENDPOINTS="http://${discovery_ip}:2379" \
+              charmed-etcd:"${version}"
+          done
+
+          # wait a bit for it to fully initialize
+          sleep 15s
+          
+          cluster=$(docker exec etcd0 etcdctl member list)
+          for expected in "${MEMBERS[@]}"; do
+            if ! grep -q "${expected}" <<< "$cluster"; then
+              echo "member ${expected} not found in cluster:"
+              echo "${cluster}"
+              exit 1
+            fi
+          done
+
+          if ! docker exec etcd0 etcdctl put foo bar; then
+            echo "etcd failed put test"
+            exit 1
+          fi
+
+          sleep 2s
+
+          VALUE=$(docker exec etcd1 etcdctl get foo --print-value-only)
+          if [ "$VALUE" != "bar" ]; then
+            echo "expected 'bar' but got '$VALUE'"
+            exit 1
+          fi
+
+          for NAME in "${MEMBERS[@]}"; do
+            if ! docker exec "${NAME}" etcdctl endpoint health | grep -q "is healthy"; then
+              echo "member ${NAME} failed health check"
+              exit 1
+            fi
+          done

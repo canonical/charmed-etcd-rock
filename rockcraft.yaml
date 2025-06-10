@@ -1,0 +1,44 @@
+name: charmed-etcd # the name of your ROCK
+base: ubuntu@24.04 # the base environment for this ROCK
+license: Apache-2.0
+version: '3.6.0' # just for humans. Semantic versioning is recommended
+summary: 'etcd is a distributed reliable key-value store for distributed systems.'
+description: |
+  etcd is a distributed reliable key-value store for the most critical data of a distributed system.
+
+  etcd is written in Go and uses the Raft consensus algorithm to manage a highly-available replicated log.
+platforms: # The platforms this ROCK should be built on and run on
+  amd64:
+  arm64:
+
+run_user: _daemon_
+
+services:
+  etcd:
+    override: replace
+    startup: enabled
+    summary: Start etcd
+    command: "/usr/bin/etcd"
+    environment:
+      ETCD_DATA_DIR: /var/lib/etcd
+
+parts:
+  etcd-snap:
+    plugin: nil
+    stage-snaps:
+      - charmed-etcd/3.6/edge
+    stage:
+      - "-config/etcd.conf.yml"
+
+  non-root-user:
+    plugin: nil
+    after: 
+      - etcd-snap
+    override-prime: |
+      craftctl default
+
+      mkdir -p $CRAFT_PRIME/var/lib/etcd
+      chown -R 584792:584792 $CRAFT_PRIME/var/lib/etcd
+
+      mkdir -p $CRAFT_PRIME/var/log/etcd
+      chown -R 584792:584792 $CRAFT_PRIME/var/log/etcd

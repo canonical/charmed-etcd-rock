@@ -29,6 +29,7 @@ parts:
       - charmed-etcd/3.6/edge
     stage:
       - "-config/etcd.conf.yml"
+
   non-root-user:
     plugin: nil
     after: 

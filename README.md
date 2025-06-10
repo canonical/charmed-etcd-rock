@@ -26,10 +26,50 @@ sudo lxd init --auto
 ### Packing and Running the rock
 
 ```
+version=$(yq .version rockcraft.yaml)
 rockcraft pack
 ROCK=$(echo ./charmed-etcd_*.rock)
-sudo rockcraft.skopeo --insecure-policy copy oci-archive:$ROCK docker-daemon:charmed-etcd:<tag>
-docker run --rm -it charmed-etcd:<tag>
+sudo rockcraft.skopeo --insecure-policy copy oci-archive:$ROCK docker-daemon:charmed-etcd:${version}
+docker run --rm -it charmed-etcd:${version}
+```
+### Forming a cluster
+```
+# deploy discovery node
+discovery_node=$(docker run -d \
+  --name discovery-node \
+  -e ETCD_NAME=discovery-node \
+  -e ETCD_INITIAL_ADVERTISE_PEER_URLS=http://localhost:2380 \
+  -e ETCD_LISTEN_PEER_URLS=http://0.0.0.0:2380 \
+  -e ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:2379 \
+  -e ETCD_ADVERTISE_CLIENT_URLS=http://localhost:2379 \
+  charmed-etcd:${version}
+)
+
+discovery_ip=$(docker inspect -f '{{ .NetworkSettings.IPAddress }}' "${discovery_node}")
+
+# generate unique cluster token
+TOKEN="random-token"
+
+# register expected cluster size
+docker exec discovery-node etcdctl put /_etcd/registry/${TOKEN}/_config/size 3
+
+# start cluster members
+MEMBERS=(etcd0 etcd1 etcd2)
+for NAME in "${MEMBERS[@]}"; do
+  docker run -d \
+    --name "$NAME" \
+    -e ETCD_NAME="${NAME}" \
+    -e ETCD_INITIAL_ADVERTISE_PEER_URLS="http://localhost:2380" \
+    -e ETCD_LISTEN_PEER_URLS="http://0.0.0.0:2380" \
+    -e ETCD_LISTEN_CLIENT_URLS="http://0.0.0.0:2379" \
+    -e ETCD_ADVERTISE_CLIENT_URLS="http://localhost:2379" \
+    -e ETCD_DISCOVERY_TOKEN="${TOKEN}" \
+    -e ETCD_DISCOVERY_ENDPOINTS="http://${discovery_ip}:2379" \
+    charmed-etcd:${version}
+done
+
+# discovery node can now be removed
+docker rm -f discovery-node
 ```
 ## License:
 The Charmed etcd rock is free software, distributed under the Apache Software License, version 2.0. See licenses for 

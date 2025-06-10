@@ -3,7 +3,6 @@ name: Build and Test Rock
 on:
   workflow_call:
   pull_request:
-  workflow_dispatch:
 
 jobs:
   build:

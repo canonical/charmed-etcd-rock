@@ -4,7 +4,7 @@ name: Trivy Security Scanner
 on:
   push:
     branches:
-      - 3.5/edge
+      - 3.6/edge
   pull_request:
 
 permissions:
@@ -64,7 +64,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Run Trivy in GitHub SBOM mode and submit to Dependency Graph
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.31.0
         with:
           scan-type: 'image'
           format: 'spdx-json'

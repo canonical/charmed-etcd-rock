@@ -91,7 +91,7 @@ jobs:
               -e ETCD_ADVERTISE_CLIENT_URLS="http://localhost:2379" \
               -e ETCD_DISCOVERY_TOKEN="${TOKEN}" \
               -e ETCD_DISCOVERY_ENDPOINTS="http://${discovery_ip}:2379" \
-              "${ETCD_IMG}"
+              charmed-etcd:"${version}"
           done
 
           # wait a bit for it to fully initialize

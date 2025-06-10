@@ -10,6 +10,9 @@ description: |
 platforms: # The platforms this ROCK should be built on and run on
   amd64:
   arm64:
+
+run_user: _daemon_
+
 services:
   etcd:
     override: replace
@@ -30,12 +33,8 @@ parts:
     plugin: nil
     after: 
       - etcd-snap
-    overlay-script: |
-      # Create a user in the $CRAFT_OVERLAY chroot
-      groupadd -R $CRAFT_OVERLAY -g  584788 etcd
-      useradd -R $CRAFT_OVERLAY -M -r -g etcd -u 584788 etcd
     override-prime: |
       craftctl default
 
       mkdir -p $CRAFT_PRIME/var/lib/etcd
-      chown -R 584788:584788 $CRAFT_PRIME/var/lib/etcd
+      chown -R 584792:584792 $CRAFT_PRIME/var/lib/etcd

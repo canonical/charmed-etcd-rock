@@ -42,7 +42,7 @@ jobs:
               docker-daemon:trivy/charmed-etcd:test
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.31.0
         with:
           image-ref: 'trivy/charmed-etcd:test'
           format: 'sarif'
@@ -54,13 +54,8 @@ jobs:
         if: always()
         with:
           sarif_file: 'trivy-results.sarif'
-  sbom:
-    name: Trivy SBOM and Dependency Upload
-    needs: scan
-    if: github.event_name == 'push'
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Run Trivy in GitHub SBOM mode and submit to Dependency Graph
+
+      - name: Run Trivy in GitHub SBOM mode and submit results to Dependency Graph
         uses: aquasecurity/trivy-action@0.31.0
         with:
           scan-type: 'image'

@@ -54,14 +54,9 @@ jobs:
         if: always()
         with:
           sarif_file: 'trivy-results.sarif'
-  sbom:
-    name: Trivy SBOM and Dependency Upload
-    needs: scan
-    if: github.event_name == 'push'
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Run Trivy in GitHub SBOM mode and submit to Dependency Graph
-        uses: aquasecurity/trivy-action@0.31.0
+
+      - name: Run Trivy in GitHub SBOM mode and submit results to Dependency Graph
+        uses: aquasecurity/trivy-action@master
         with:
           scan-type: 'image'
           format: 'spdx-json'

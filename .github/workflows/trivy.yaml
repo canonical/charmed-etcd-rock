@@ -7,9 +7,6 @@ on:
       - 3.6/edge
   pull_request:
 
-permissions:
-  contents: read # Set the GITHUB_TOKEN permissions to read-only
-
 jobs:
   build:
     name: Build rock

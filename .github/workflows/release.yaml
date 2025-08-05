@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - 3.6-24.04/edge
+      - 3.6-24.04/beta
 
 jobs:
   ci-tests:

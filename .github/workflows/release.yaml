@@ -1,8 +1,5 @@
 name: Publish to GHCR
 
-env:
-  RELEASE: edge
-
 on:
   push:
     branches:
@@ -20,6 +17,13 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+      - name: Extract branch name
+        shell: bash
+        run: |
+          BRANCH=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}
+          echo "branch=${BRANCH}" >> $GITHUB_OUTPUT
+          echo "risk=${BRANCH##*\/}" >> $GITHUB_OUTPUT
+        id: extract_branch
       - name: Setup Docker
         run: |
           sudo snap install docker
@@ -47,7 +51,8 @@ jobs:
           version="$(yq .version rockcraft.yaml)"
           base=$(yq .base rockcraft.yaml)
           base="${base#*@}"
-          tag=${version}-${base}_${{ env.RELEASE }}
+          risk=${{ steps.extract_branch.outputs.risk }}
+          tag=${version}-${base}_${risk}
 
           echo "Publishing charmed-etcd:${tag}"
           sudo rockcraft.skopeo --insecure-policy copy \

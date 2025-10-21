@@ -3,8 +3,7 @@ name: Publish to GHCR
 on:
   push:
     branches:
-      - 3.6-24.04/edge
-      - 3.6-24.04/beta
+      - 3.6-24.04/stable
 
 jobs:
   ci-tests:

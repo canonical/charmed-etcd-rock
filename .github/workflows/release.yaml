@@ -53,8 +53,15 @@ jobs:
           base="${base#*@}"
           risk=${{ steps.extract_branch.outputs.risk }}
           tag=${version}-${base}_${risk}
+          candidate_tag=${version}-${base}_candidate
 
           echo "Publishing charmed-etcd:${tag}"
+          # release to candidate
+          sudo rockcraft.skopeo --insecure-policy copy \
+            oci-archive:charmed-etcd_${version}_amd64.rock \
+            docker-daemon:ghcr.io/canonical/charmed-etcd:${candidate_tag}
+          docker push ghcr.io/canonical/charmed-etcd:${candidate_tag}
+          # release to stable
           sudo rockcraft.skopeo --insecure-policy copy \
             oci-archive:charmed-etcd_${version}_amd64.rock \
             docker-daemon:ghcr.io/canonical/charmed-etcd:${tag}

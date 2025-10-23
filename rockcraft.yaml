@@ -26,7 +26,7 @@ parts:
   etcd-snap:
     plugin: nil
     stage-snaps:
-      - charmed-etcd/3.6/edge
+      - charmed-etcd/3.6/beta
     stage:
       - "-config/etcd.conf.yml"
 

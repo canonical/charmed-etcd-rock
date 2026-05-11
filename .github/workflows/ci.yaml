@@ -74,7 +74,7 @@ jobs:
             -e ETCD_ADVERTISE_CLIENT_URLS=http://localhost:2379 \
             charmed-etcd:"${version}"
           )
-          discovery_ip=$(docker inspect -f '{{ .NetworkSettings.IPAddress }}' "${discovery_node}")
+          discovery_ip=$(docker inspect -f '{{ .NetworkSettings.Networks.bridge.IPAddress }}' "${discovery_node}")
 
           TOKEN="random-token"
           docker exec "${discovery_node}" etcdctl put /_etcd/registry/${TOKEN}/_config/size 3

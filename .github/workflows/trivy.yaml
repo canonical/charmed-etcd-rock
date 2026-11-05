@@ -6,6 +6,7 @@ on:
     branches:
       - 3.6-24.04/edge
   pull_request:
+  workflow_dispatch:
 
 jobs:
   build:
@@ -17,7 +18,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v7
 
       - name: Install required dependencies
         run: |
@@ -28,7 +29,7 @@ jobs:
           sudo snap install yq
 
       - name: Download rock package(s)
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: ${{ needs.build.outputs.artifact-prefix }}-*
           merge-multiple: true
@@ -42,7 +43,7 @@ jobs:
               docker-daemon:trivy/charmed-etcd:test
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.35.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: 'trivy/charmed-etcd:test'
           format: 'sarif'
@@ -50,13 +51,13 @@ jobs:
           severity: 'MEDIUM,HIGH,CRITICAL'
 
       - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: 'trivy-results.sarif'
 
       - name: Run Trivy in GitHub SBOM mode and submit results to Dependency Graph
-        uses: aquasecurity/trivy-action@0.35.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: 'image'
           format: 'spdx-json'
@@ -67,7 +68,7 @@ jobs:
           scanners: 'vuln'
 
       - name: Upload trivy report as a Github artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: trivy-sbom-report
           path: '${{ github.workspace }}/dependency-results.sbom.json'
